@@ -3,7 +3,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import requests
 from io import BytesIO
+from urllib.parse import urlparse
 
 class ShipmentDataChecker:
     """发货数据核对Agent"""
@@ -101,9 +103,8 @@ class ShipmentDataChecker:
             fnsku = str(row['FNSKU']).strip() if not pd.isna(row['FNSKU']) else ""
             country = str(row['国家']).strip() if not pd.isna(row['国家']) else ""
             
-            # 处理计划发货量，保留为整数
             planned_qty = float(row['计划发货量']) if not pd.isna(row['计划发货量']) else 0
-            planned_qty = int(round(planned_qty))  # 转换为整数
+            planned_qty = int(round(planned_qty))
             
             key = (asin, fnsku, country)
             
@@ -115,7 +116,6 @@ class ShipmentDataChecker:
                 if custom_qty is None:
                     continue
                 
-                # 转换为整数
                 custom_qty = int(round(custom_qty))
                 error = abs(planned_qty - custom_qty)
                 
@@ -127,14 +127,70 @@ class ShipmentDataChecker:
                         '国家': country,
                         '自定义发货量': custom_qty,
                         '计划发货量': planned_qty, 
-                        '误差': int(error)  # 误差也转换为整数
+                        '误差': int(error)
                     })
         
         return self.results
 
+def convert_kdocs_url_to_direct(url):
+    """
+    将金山文档的分享URL转换为可以直接下载Excel的URL
+    金山文档的分享URL格式：https://www.kdocs.cn/l/xxx
+    我们需要提取文档ID并构造下载链接
+    """
+    try:
+        # 从URL中提取文档ID
+        # https://www.kdocs.cn/l/caxFVgMMlMXG  -> 文档ID是 caxFVgMMlMXG
+        doc_id = url.split('/')[-1]
+        
+        # 金山文档的下载接口
+        # 这是通过分析金山文档分享机制得到的下载链接格式
+        direct_url = f"https://www.kdocs.cn/api/office/file/{doc_id}/download"
+        
+        return direct_url
+    except Exception as e:
+        st.error(f"URL解析错误: {e}")
+        return None
+
+def load_kdocs_file(url):
+    """
+    从金山文档URL加载Excel文件
+    """
+    try:
+        # 添加请求头模拟浏览器访问
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+        }
+        
+        # 转换URL并下载
+        download_url = convert_kdocs_url_to_direct(url)
+        if not download_url:
+            return None
+            
+        st.info(f"正在从金山文档读取数据...")
+        response = requests.get(download_url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            # 从内存中读取Excel
+            excel_data = BytesIO(response.content)
+            df = pd.read_excel(excel_data, sheet_name='Sheet1')
+            return df
+        else:
+            st.error(f"下载失败，状态码: {response.status_code}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        st.error(f"网络请求错误: {e}")
+        return None
+    except Exception as e:
+        st.error(f"读取Excel失败: {e}")
+        return None
+
 # Streamlit页面配置
 st.set_page_config(
-    page_title="误差超标核对",
+    page_title="误差超标核对（在线版）",
     page_icon="⚠️",
     layout="wide"
 )
@@ -148,25 +204,53 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    .error-table {
-        margin-top: 20px;
-    }
-    .stDataFrame {
-        font-size: 14px;
+    .info-box {
+        background-color: #e7f3ff;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #2196F3;
+        margin: 10px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 创建两列上传区域
+# 标题
+st.markdown("# ⚠️ 误差超标核对系统（在线版）")
+
+# 显示金山文档链接信息
+st.markdown("""
+<div class="info-box">
+    <strong>📌 附件1（补货建议）来源：</strong> 金山文档在线表格<br>
+    <strong>链接：</strong> https://www.kdocs.cn/l/caxFVgMMlMXG
+</div>
+""", unsafe_allow_html=True)
+
+# 创建两列布局
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("### 📁 补货建议")
-    file1 = st.file_uploader("选择111补货建议.xlsx", type=['xlsx', 'xls'], key="file1")
+    st.markdown("### 📁 附件1：在线补货建议")
+    st.markdown("**状态：** 已配置在线文档")
+    
+    # 手动触发读取按钮
+    if st.button("🔄 重新读取在线文档", use_container_width=True):
+        with st.spinner("正在读取金山文档..."):
+            df1 = load_kdocs_file("https://www.kdocs.cn/l/caxFVgMMlMXG")
+            if df1 is not None:
+                st.session_state['df1'] = df1
+                st.success(f"✅ 读取成功！共 {len(df1)} 行数据")
+                # 显示前几行预览
+                preview_cols = ['产品', 'ASIN', '标签（FNSKU)', '国家', '自定义发货']
+                available_cols = [col for col in preview_cols if col in df1.columns]
+                st.dataframe(df1[available_cols].head(3), use_container_width=True)
+            else:
+                st.error("❌ 读取失败，请检查链接是否有效")
 
 with col2:
-    st.markdown("### 📁 发货计划")
+    st.markdown("### 📁 附件2：发货计划")
     file2 = st.file_uploader("选择发货计划.xlsx", type=['xlsx', 'xls'], key="file2")
+    if file2:
+        st.success(f"✅ 已上传: {file2.name}")
 
 # 设置误差容忍度
 st.markdown("---")
@@ -177,16 +261,12 @@ with col_slider2:
     st.metric("当前值", tolerance)
 
 # 核对按钮
-if file1 and file2:
+if 'df1' in st.session_state and file2:
     if st.button("🔍 开始核对", type="primary", use_container_width=True):
         with st.spinner("正在核对数据..."):
             try:
-                # 读取文件时不指定dtype，让pandas自动处理
-                df1 = pd.read_excel(file1, sheet_name='Sheet1')
+                df1 = st.session_state['df1']
                 df2 = pd.read_excel(file2, sheet_name='sheet1')
-                
-                # 显示读取状态
-                st.caption(f"已读取附件1: {len(df1)}行, 附件2: {len(df2)}行")
                 
                 checker = ShipmentDataChecker()
                 results = checker.check(df1, df2, tolerance)
@@ -204,7 +284,7 @@ if file1 and file2:
                     column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '自定义发货量', '计划发货量', '误差']
                     df_error = df_error[column_order]
                     
-                    # 显示表格，所有数值已经是整数
+                    # 显示表格
                     st.dataframe(
                         df_error.style.applymap(
                             lambda x: 'background-color: #ffcccc' if isinstance(x, (int, float)) and x > tolerance else '',
@@ -219,7 +299,6 @@ if file1 and file2:
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_error.to_excel(writer, sheet_name='误差超标记录', index=False)
                         
-                        # 添加统计信息
                         stats_df = pd.DataFrame([{
                             '总超标数': len(results['error']),
                             '误差容忍度': tolerance
@@ -245,21 +324,25 @@ if file1 and file2:
                 with st.expander("查看详细错误"):
                     st.code(traceback.format_exc())
 
-else:
-    st.info("👆 请上传两个Excel文件")
+elif 'df1' not in st.session_state:
+    st.info("👆 请先点击「重新读取在线文档」按钮加载附件1")
 
-# 简短的说明
+else:
+    st.info("👆 请上传附件2（发货计划）")
+
+# 使用说明
 with st.expander("📖 说明"):
     st.markdown("""
-    **文件格式要求：**
-    - 附件1：需包含`产品`、`ASIN`、`标签（FNSKU)`、`国家`(us/ca/uk/eu)、`自定义发货`列
-    - 附件2：需包含`ASIN`、`FNSKU`、`国家`(美国/加拿大/英国/德国)、`计划发货量`列
-    
     **功能特点：**
+    - ✅ 自动从金山文档读取附件1（补货建议）
+    - ✅ 只需要上传附件2（发货计划）
     - ✅ 自动处理合并单元格，产品名称会向下填充
     - ✅ 所有数量值显示为整数
     - ✅ 只显示误差超过容忍度的记录
-    - ✅ 红色高亮显示超标行
     
     **输出列：** 产品名称 | ASIN | FNSKU | 国家 | 自定义发货量 | 计划发货量 | 误差
+    
+    **如果读取失败，可以尝试：**
+    1. 确认链接是否公开可访问
+    2. 手动下载文件后使用旧版上传功能
     """)
