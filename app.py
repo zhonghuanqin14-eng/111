@@ -5,7 +5,7 @@ import numpy as np
 import re
 import requests
 from io import BytesIO
-from urllib.parse import urlparse
+import time
 
 class ShipmentDataChecker:
     """发货数据核对Agent"""
@@ -132,65 +132,89 @@ class ShipmentDataChecker:
         
         return self.results
 
-def convert_kdocs_url_to_direct(url):
+def load_kdocs_file(url):
     """
-    将金山文档的分享URL转换为可以直接下载Excel的URL
-    金山文档的分享URL格式：https://www.kdocs.cn/l/xxx
-    我们需要提取文档ID并构造下载链接
+    从金山文档URL加载Excel文件 - 修复版
+    使用模拟浏览器行为下载文件
     """
     try:
         # 从URL中提取文档ID
-        # https://www.kdocs.cn/l/caxFVgMMlMXG  -> 文档ID是 caxFVgMMlMXG
         doc_id = url.split('/')[-1]
         
-        # 金山文档的下载接口
-        # 这是通过分析金山文档分享机制得到的下载链接格式
-        direct_url = f"https://www.kdocs.cn/api/office/file/{doc_id}/download"
-        
-        return direct_url
-    except Exception as e:
-        st.error(f"URL解析错误: {e}")
-        return None
-
-def load_kdocs_file(url):
-    """
-    从金山文档URL加载Excel文件
-    """
-    try:
-        # 添加请求头模拟浏览器访问
+        # 设置更完整的浏览器请求头
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
         }
         
-        # 转换URL并下载
-        download_url = convert_kdocs_url_to_direct(url)
-        if not download_url:
-            return None
-            
-        st.info(f"正在从金山文档读取数据...")
-        response = requests.get(download_url, headers=headers, timeout=30)
+        st.info("🔄 正在访问金山文档...")
         
-        if response.status_code == 200:
-            # 从内存中读取Excel
-            excel_data = BytesIO(response.content)
-            df = pd.read_excel(excel_data, sheet_name='Sheet1')
-            return df
-        else:
-            st.error(f"下载失败，状态码: {response.status_code}")
+        # 第一步：访问分享链接，获取重定向后的真实地址
+        session = requests.Session()
+        response = session.get(url, headers=headers, timeout=30, allow_redirects=True)
+        
+        if response.status_code != 200:
+            st.error(f"访问失败，状态码: {response.status_code}")
             return None
+        
+        # 第二步：尝试找到下载按钮的链接
+        # 金山文档通常有导出功能，我们可以尝试构造导出链接
+        export_url = f"https://www.kdocs.cn/api/office/file/{doc_id}/export?type=xlsx"
+        
+        st.info("🔄 正在导出Excel文件...")
+        export_response = session.get(export_url, headers=headers, timeout=30)
+        
+        if export_response.status_code == 200:
+            # 尝试直接读取
+            try:
+                df = pd.read_excel(BytesIO(export_response.content), engine='openpyxl')
+                st.success("✅ Excel文件读取成功！")
+                return df
+            except Exception as e:
+                st.warning(f"直接读取失败，尝试备用方法: {e}")
+        
+        # 第三步：备用方法 - 尝试获取预览数据
+        st.info("🔄 尝试获取预览数据...")
+        preview_url = f"https://www.kdocs.cn/api/office/file/{doc_id}/preview"
+        preview_response = session.get(preview_url, headers=headers, timeout=30)
+        
+        if preview_response.status_code == 200:
+            try:
+                data = preview_response.json()
+                st.write("调试信息：", data)  # 这行可以帮助我们了解返回的数据结构
+            except:
+                pass
+        
+        # 如果以上都失败，提示用户手动下载
+        st.warning("⚠️ 自动读取失败，请使用手动下载方式")
+        st.markdown(f"""
+        **手动下载步骤：**
+        1. 打开链接：{url}
+        2. 点击右上角的「下载」按钮
+        3. 下载文件后，使用下面的上传功能
+        """)
+        
+        return None
             
     except requests.exceptions.RequestException as e:
         st.error(f"网络请求错误: {e}")
         return None
     except Exception as e:
-        st.error(f"读取Excel失败: {e}")
+        st.error(f"处理失败: {e}")
         return None
 
 # Streamlit页面配置
 st.set_page_config(
-    page_title="误差超标核对（在线版）",
+    page_title="误差超标核对",
     page_icon="⚠️",
     layout="wide"
 )
@@ -198,12 +222,6 @@ st.set_page_config(
 # 自定义CSS样式
 st.markdown("""
 <style>
-    .upload-box {
-        border: 2px dashed #ccc;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 10px 0;
-    }
     .info-box {
         background-color: #e7f3ff;
         padding: 15px;
@@ -211,11 +229,18 @@ st.markdown("""
         border-left: 4px solid #2196F3;
         margin: 10px 0;
     }
+    .warning-box {
+        background-color: #fff3cd;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #ffc107;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # 标题
-st.markdown("# ⚠️ 误差超标核对系统（在线版）")
+st.markdown("# ⚠️ 误差超标核对系统")
 
 # 显示金山文档链接信息
 st.markdown("""
@@ -225,16 +250,18 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 创建两列布局
-col1, col2 = st.columns(2)
+# 创建选项卡
+tab1, tab2 = st.tabs(["🌐 在线读取（自动）", "📁 本地上传（手动）"])
 
-with col1:
-    st.markdown("### 📁 附件1：在线补货建议")
-    st.markdown("**状态：** 已配置在线文档")
+with tab1:
+    st.markdown("### 🌐 从金山文档自动读取")
+    
+    # 显示链接确认
+    st.markdown(f"**当前链接:** `https://www.kdocs.cn/l/caxFVgMMlMXG`")
     
     # 手动触发读取按钮
-    if st.button("🔄 重新读取在线文档", use_container_width=True):
-        with st.spinner("正在读取金山文档..."):
+    if st.button("🔄 读取在线文档", type="primary", use_container_width=True):
+        with st.spinner("正在连接金山文档..."):
             df1 = load_kdocs_file("https://www.kdocs.cn/l/caxFVgMMlMXG")
             if df1 is not None:
                 st.session_state['df1'] = df1
@@ -242,15 +269,27 @@ with col1:
                 # 显示前几行预览
                 preview_cols = ['产品', 'ASIN', '标签（FNSKU)', '国家', '自定义发货']
                 available_cols = [col for col in preview_cols if col in df1.columns]
-                st.dataframe(df1[available_cols].head(3), use_container_width=True)
+                st.dataframe(df1[available_cols].head(5), use_container_width=True)
             else:
-                st.error("❌ 读取失败，请检查链接是否有效")
+                st.markdown("""
+                <div class="warning-box">
+                    <strong>💡 提示：</strong> 如果自动读取失败，请切换到「本地上传」选项卡，手动下载后上传。
+                </div>
+                """, unsafe_allow_html=True)
 
-with col2:
-    st.markdown("### 📁 附件2：发货计划")
-    file2 = st.file_uploader("选择发货计划.xlsx", type=['xlsx', 'xls'], key="file2")
-    if file2:
-        st.success(f"✅ 已上传: {file2.name}")
+with tab2:
+    st.markdown("### 📁 手动上传附件1")
+    st.info("如果在线读取失败，请先手动下载金山文档，然后在这里上传")
+    file1 = st.file_uploader("选择补货建议.xlsx", type=['xlsx', 'xls'], key="file1_manual")
+    if file1:
+        df1 = pd.read_excel(file1, sheet_name='Sheet1')
+        st.session_state['df1'] = df1
+        st.success(f"✅ 上传成功！共 {len(df1)} 行数据")
+
+# 附件2上传区域（放在外面，两个选项卡共享）
+st.markdown("---")
+st.markdown("### 📁 附件2：发货计划")
+file2 = st.file_uploader("选择发货计划.xlsx", type=['xlsx', 'xls'], key="file2")
 
 # 设置误差容忍度
 st.markdown("---")
@@ -325,24 +364,29 @@ if 'df1' in st.session_state and file2:
                     st.code(traceback.format_exc())
 
 elif 'df1' not in st.session_state:
-    st.info("👆 请先点击「重新读取在线文档」按钮加载附件1")
-
+    st.info("👆 请先加载附件1（可以使用在线读取或手动上传）")
 else:
     st.info("👆 请上传附件2（发货计划）")
 
 # 使用说明
-with st.expander("📖 说明"):
+with st.expander("📖 使用说明"):
     st.markdown("""
+    ### 两种方式加载附件1：
+    
+    **1. 在线读取（自动）**
+    - 点击「读取在线文档」按钮
+    - 系统会自动从金山文档获取数据
+    - 如果失败，请使用手动上传
+    
+    **2. 本地上传（手动）**
+    - 打开金山文档链接
+    - 点击右上角「下载」按钮
+    - 将下载的文件上传
+    
     **功能特点：**
-    - ✅ 自动从金山文档读取附件1（补货建议）
-    - ✅ 只需要上传附件2（发货计划）
     - ✅ 自动处理合并单元格，产品名称会向下填充
     - ✅ 所有数量值显示为整数
     - ✅ 只显示误差超过容忍度的记录
     
     **输出列：** 产品名称 | ASIN | FNSKU | 国家 | 自定义发货量 | 计划发货量 | 误差
-    
-    **如果读取失败，可以尝试：**
-    1. 确认链接是否公开可访问
-    2. 手动下载文件后使用旧版上传功能
     """)
