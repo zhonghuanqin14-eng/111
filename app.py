@@ -41,15 +41,40 @@ class ShipmentDataChecker:
         except ValueError:
             return None
     
+    def fill_product_name(self, df):
+        """
+        填充产品名称，处理合并单元格的情况
+        如果当前行为空，则向上查找第一个非空值
+        """
+        product_names = []
+        current_product = None
+        
+        for idx, row in df.iterrows():
+            product_val = row.get('产品')
+            if pd.notna(product_val) and str(product_val).strip():
+                current_product = str(product_val).strip()
+                product_names.append(current_product)
+            else:
+                # 如果当前行为空，使用上一个非空值
+                product_names.append(current_product)
+        
+        return product_names
+    
     def build_file1_index(self, df1):
+        # 先处理产品名称（解决合并单元格问题）
+        filled_products = self.fill_product_name(df1)
+        
         index = {}
         for idx, row in df1.iterrows():
             if pd.isna(row.get('ASIN')) or pd.isna(row.get('标签（FNSKU)')):
                 continue
+                
             asin = str(row['ASIN']).strip() if not pd.isna(row['ASIN']) else ""
             fnsku = str(row['标签（FNSKU)']).strip() if not pd.isna(row['标签（FNSKU)']) else ""
             country = self.normalize_country(row.get('国家'))
-            product_name = row.get('产品') if not pd.isna(row.get('产品')) else ""
+            
+            # 使用填充后的产品名称
+            product_name = filled_products[idx] if idx < len(filled_products) else ""
             
             if not country or not asin or not fnsku:
                 continue
@@ -57,11 +82,17 @@ class ShipmentDataChecker:
             key = (asin, fnsku, country)
             custom_shipment = self.extract_custom_shipment(row.get('自定义发货'))
             
-            index[key] = {
-                'row_index': idx,
-                'custom_shipment': custom_shipment,
-                'product_name': product_name,
-            }
+            # 如果当前key已存在，保留第一个非空的产品名称
+            if key in index:
+                existing_product = index[key]['product_name']
+                if not existing_product and product_name:
+                    index[key]['product_name'] = product_name
+            else:
+                index[key] = {
+                    'row_index': idx,
+                    'custom_shipment': custom_shipment,
+                    'product_name': product_name,
+                }
         return index
     
     def check(self, df1, df2, tolerance=80):
@@ -72,18 +103,23 @@ class ShipmentDataChecker:
             asin = str(row['ASIN']).strip() if not pd.isna(row['ASIN']) else ""
             fnsku = str(row['FNSKU']).strip() if not pd.isna(row['FNSKU']) else ""
             country = str(row['国家']).strip() if not pd.isna(row['国家']) else ""
+            
+            # 处理计划发货量，保留为整数
             planned_qty = float(row['计划发货量']) if not pd.isna(row['计划发货量']) else 0
+            planned_qty = int(round(planned_qty))
             
             key = (asin, fnsku, country)
             
             if key in file1_index:
                 file1_record = file1_index[key]
                 custom_qty = file1_record['custom_shipment']
-                product_name = file1_record['product_name']
+                product_name = file1_record['product_name'] if file1_record['product_name'] else "未知产品"
                 
                 if custom_qty is None:
                     continue
                 
+                # 转换为整数
+                custom_qty = int(round(custom_qty))
                 error = abs(planned_qty - custom_qty)
                 
                 if error > tolerance:
@@ -92,9 +128,9 @@ class ShipmentDataChecker:
                         'ASIN': asin, 
                         'FNSKU': fnsku, 
                         '国家': country,
-                        '自定义发货量': custom_qty,
-                        '计划发货量': planned_qty, 
-                        '误差': round(error, 2)
+                        '补货建议数据': custom_qty,      # 改名为补货建议数据
+                        'ERP数据': planned_qty,         # 改名为ERP数据
+                        '误差': int(error)
                     })
         
         return self.results
@@ -118,6 +154,9 @@ st.markdown("""
     .error-table {
         margin-top: 20px;
     }
+    .dataframe {
+        font-size: 14px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -129,7 +168,7 @@ with col1:
     file1 = st.file_uploader("选择111补货建议.xlsx", type=['xlsx', 'xls'], key="file1")
 
 with col2:
-    st.markdown("### 📁 发货计划")
+    st.markdown("### 📁 发货计划 (ERP数据)")
     file2 = st.file_uploader("选择发货计划.xlsx", type=['xlsx', 'xls'], key="file2")
 
 # 设置误差容忍度
@@ -148,6 +187,9 @@ if file1 and file2:
                 df1 = pd.read_excel(file1, sheet_name='Sheet1')
                 df2 = pd.read_excel(file2, sheet_name='sheet1')
                 
+                # 显示读取状态
+                st.caption(f"已读取补货建议: {len(df1)}行, ERP数据: {len(df2)}行")
+                
                 checker = ShipmentDataChecker()
                 results = checker.check(df1, df2, tolerance)
                 
@@ -161,7 +203,7 @@ if file1 and file2:
                     df_error = pd.DataFrame(results['error'])
                     
                     # 重新排列列顺序
-                    column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '自定义发货量', '计划发货量', '误差']
+                    column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '补货建议数据', 'ERP数据', '误差']
                     df_error = df_error[column_order]
                     
                     # 显示表格
@@ -201,6 +243,9 @@ if file1 and file2:
                     
             except Exception as e:
                 st.error(f"核对出错: {str(e)}")
+                import traceback
+                with st.expander("查看详细错误"):
+                    st.code(traceback.format_exc())
 
 else:
     st.info("👆 请上传两个Excel文件")
@@ -209,8 +254,23 @@ else:
 with st.expander("📖 说明"):
     st.markdown("""
     **文件格式要求：**
-    - 附件1：需包含`产品`、`ASIN`、`标签（FNSKU)`、`国家`(us/ca/uk/eu)、`自定义发货`列
-    - 附件2：需包含`ASIN`、`FNSKU`、`国家`(美国/加拿大/英国/德国)、`计划发货量`列
+    - **补货建议**：需包含`产品`、`ASIN`、`标签（FNSKU)`、`国家`(us/ca/uk/eu)、`自定义发货`列
+    - **ERP数据**：需包含`ASIN`、`FNSKU`、`国家`(美国/加拿大/英国/德国)、`计划发货量`列
     
-    **输出内容：** 产品名称、ASIN、FNSKU、国家、自定义发货量、计划发货量、误差
+    **输出内容说明：**
+    | 列名 | 说明 |
+    |------|------|
+    | 产品名称 | 从补货建议中获取的产品名称 |
+    | ASIN | 商品标准识别码 |
+    | FNSKU | FNSKU编码 |
+    | 国家 | 销售国家 |
+    | **补货建议数据** | 从补货建议文件中读取的自定义发货量 |
+    | **ERP数据** | 从发货计划文件中读取的计划发货量 |
+    | 误差 | 两者的差值 |
+    
+    **功能特点：**
+    - ✅ 自动处理合并单元格，产品名称会向下填充
+    - ✅ 所有数量值显示为整数
+    - ✅ 只显示误差超过容忍度的记录
+    - ✅ 红色高亮显示超标行
     """)
