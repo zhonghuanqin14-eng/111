@@ -9,7 +9,7 @@ from datetime import datetime
 # 页面配置 - 必须在最前面
 st.set_page_config(
     page_title="发货数据核对",
-    page_icon="🔍",
+    page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -194,37 +194,6 @@ st.markdown("""
         font-size: 1.1em;
     }
     
-    /* 参数设置区域 */
-    .params-section {
-        background: white;
-        border-radius: 20px;
-        padding: 25px;
-        margin: 30px 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    }
-    
-    .params-title {
-        font-size: 1.3em;
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 25px;
-        display: flex;
-        align-items: center;
-    }
-    
-    .params-title span {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 15px;
-        font-size: 1.2em;
-    }
-    
     /* 按钮样式 */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -239,11 +208,39 @@ st.markdown("""
         box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
         width: 100%;
         letter-spacing: 1px;
+        margin-top: 20px;
     }
     
     .stButton button:hover {
         transform: translateY(-3px);
         box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* 容忍度提示 */
+    .tolerance-badge {
+        background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%);
+        border-radius: 12px;
+        padding: 15px 25px;
+        margin: 20px 0;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    .tolerance-text {
+        font-size: 1.1em;
+        color: #4a5568;
+    }
+    
+    .tolerance-value {
+        background: #667eea;
+        color: white;
+        padding: 5px 20px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 1.2em;
     }
     
     /* 统计卡片 */
@@ -363,11 +360,6 @@ st.markdown("""
         padding: 30px 20px 10px;
         color: #64748b;
         font-size: 0.9em;
-    }
-    
-    .footer-highlight {
-        color: #667eea;
-        font-weight: 600;
     }
     
     /* 动画 */
@@ -531,7 +523,7 @@ class ShipmentDataChecker:
 st.markdown("""
 <div class="title-card animate-in">
     <div class="title-text">📦 发货数据核对</div>
-    <div class="title-subtext">补货建议 vs ERP数据 · 智能核对 · 快速定位差异</div>
+    <div class="title-subtext">补货建议 & ERP数据 · 智能核对</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -615,24 +607,13 @@ with col2:
     
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-# 参数设置区域
+# 容忍度固定提示
 st.markdown("""
-<div class="params-section">
-    <div class="params-title">
-        <span>⚙️</span> 核对参数设置
-    </div>
+<div class="tolerance-badge">
+    <span class="tolerance-text">🔍 误差范围</span>
+    <span class="tolerance-value">80</span>
+</div>
 """, unsafe_allow_html=True)
-
-col_slider1, col_slider2 = st.columns([3, 1])
-
-with col_slider1:
-    tolerance = st.slider("误差容忍度", min_value=0, max_value=200, value=80, step=10)
-
-with col_slider2:
-    st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-    st.metric("当前值", tolerance, delta=None, delta_color="off")
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # 核对按钮
 if file1 and file2:
@@ -650,8 +631,9 @@ if file1 and file2:
                     import time
                     time.sleep(0.01)
                 
+                # 固定容忍度为80
                 checker = ShipmentDataChecker()
-                results = checker.check(df1, df2, tolerance)
+                results = checker.check(df1, df2, tolerance=80)
                 
                 progress_bar.progress(100)
                 time.sleep(0.5)
@@ -714,13 +696,13 @@ if file1 and file2:
                     # 创建DataFrame
                     df_error = pd.DataFrame(results['error'])
                     
-                    # 重新排列列顺序（去掉差异比例）
+                    # 重新排列列顺序
                     column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '补货建议数据', 'ERP数据', '误差']
                     df_error = df_error[column_order]
                     
                     # 添加高亮样式
                     def highlight_error(val):
-                        if isinstance(val, (int, float)) and val > tolerance:
+                        if isinstance(val, (int, float)) and val > 80:
                             return 'background-color: #fee2e2; color: #b91c1c; font-weight: 600;'
                         return ''
                     
@@ -745,7 +727,7 @@ if file1 and file2:
                             '误差超标数': len(results['error']),
                             '匹配成功数': len(results['matched']),
                             '未匹配数': len(results['not_found']),
-                            '误差容忍度': tolerance
+                            '误差容忍度': 80
                         }])
                         stats_df.to_excel(writer, sheet_name='统计信息', index=False)
                     
@@ -760,7 +742,7 @@ if file1 and file2:
                     )
                     
                 else:
-                    st.success("✨ 太棒了！没有发现误差超过 {} 的记录".format(tolerance))
+                    st.success("✨ 太棒了！没有发现误差超过 80 的记录")
                     
             except Exception as e:
                 st.error(f"❌ 核对出错: {str(e)}")
@@ -790,7 +772,7 @@ with st.expander("📖 使用说明", expanded=False):
     
     - ✅ **智能匹配** - 自动根据ASIN、FNSKU和国家进行匹配
     - ✅ **合并单元格处理** - 自动填充产品名称，解决合并单元格问题
-    - ✅ **实时统计** - 显示核对进度和结果统计
+    - ✅ **固定容忍度** - 误差超过80即标记为超标
     - ✅ **一键导出** - 支持导出Excel格式的核对结果
     """)
 
