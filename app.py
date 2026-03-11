@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import re
 from io import BytesIO
-import base64
 from datetime import datetime
 
 # 页面配置 - 必须在最前面
@@ -36,106 +35,154 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    /* 上传区域样式 */
-    .upload-box {
+    /* 上传卡片样式 */
+    .upload-card {
         background: white;
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        border-radius: 20px;
+        padding: 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
         height: 100%;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
         border: 1px solid rgba(0,0,0,0.05);
     }
     
-    .upload-box:hover {
+    .upload-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
     }
     
-    .upload-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
+    /* 卡片头部 */
+    .card-header {
+        padding: 25px 25px 15px 25px;
         border-bottom: 2px solid #f0f2f5;
     }
     
-    .upload-icon {
-        font-size: 2em;
-        margin-right: 15px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        width: 50px;
-        height: 50px;
-        border-radius: 12px;
+    .card-header-content {
+        display: flex;
+        align-items: center;
+    }
+    
+    .card-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
+        font-size: 2.2em;
+        margin-right: 18px;
     }
     
-    .upload-title {
-        font-size: 1.3em;
-        font-weight: 600;
+    .icon-bg-blue {
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+    }
+    
+    .icon-bg-purple {
+        background: linear-gradient(135deg, #8e2de2 0%, #4a00e0 100%);
+    }
+    
+    .card-title {
+        font-size: 1.5em;
+        font-weight: 700;
         color: #1e293b;
         margin: 0;
     }
     
-    .upload-subtitle {
-        font-size: 0.9em;
+    .card-subtitle {
+        font-size: 0.95em;
         color: #64748b;
         margin: 5px 0 0;
     }
     
+    /* 卡片主体 */
+    .card-body {
+        padding: 20px 25px 25px 25px;
+    }
+    
+    /* 自定义文件上传器样式 */
+    .stFileUploader > div {
+        padding: 0 !important;
+    }
+    
+    .stFileUploader > div > div {
+        border: 2px dashed #e2e8f0 !important;
+        border-radius: 16px !important;
+        padding: 25px !important;
+        background: #f8fafc !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stFileUploader > div > div:hover {
+        border-color: #667eea !important;
+        background: #f1f5f9 !important;
+    }
+    
     /* 文件信息卡片 */
-    .file-info {
-        background: #f8fafc;
-        border-radius: 12px;
-        padding: 15px;
+    .file-info-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 16px;
+        padding: 20px;
         margin-top: 15px;
         border: 1px solid #e2e8f0;
     }
     
-    .file-info-item {
+    .file-info-row {
         display: flex;
         align-items: center;
-        margin: 8px 0;
+        padding: 10px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .file-info-row:last-child {
+        border-bottom: none;
     }
     
     .file-info-label {
         font-weight: 600;
         color: #475569;
         width: 80px;
+        font-size: 0.95em;
     }
     
     .file-info-value {
         color: #0f172a;
         flex: 1;
+        font-weight: 500;
     }
     
-    .success-badge {
+    .success-chip {
         background: #10b981;
         color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85em;
+        padding: 6px 16px;
+        border-radius: 30px;
+        font-size: 0.9em;
         font-weight: 500;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .success-chip::before {
+        content: "✓";
+        font-weight: 700;
+        font-size: 1.1em;
     }
     
     /* 参数设置区域 */
-    .params-container {
+    .params-section {
         background: white;
-        border-radius: 15px;
+        border-radius: 20px;
         padding: 25px;
         margin: 30px 0;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
     }
     
     .params-title {
         font-size: 1.3em;
         font-weight: 600;
         color: #1e293b;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         display: flex;
         align-items: center;
     }
@@ -143,13 +190,14 @@ st.markdown("""
     .params-title span {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        width: 35px;
-        height: 35px;
-        border-radius: 10px;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin-right: 12px;
+        margin-right: 15px;
+        font-size: 1.2em;
     }
     
     /* 按钮样式 */
@@ -158,23 +206,23 @@ st.markdown("""
         color: white;
         font-size: 1.2em;
         font-weight: 600;
-        padding: 15px 30px;
+        padding: 18px 30px;
         border: none;
-        border-radius: 12px;
+        border-radius: 16px;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
         width: 100%;
         letter-spacing: 1px;
     }
     
     .stButton button:hover {
         transform: translateY(-3px);
-        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
     }
     
-    /* 结果统计卡片 */
-    .stats-container {
+    /* 统计卡片 */
+    .stats-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 20px;
@@ -183,113 +231,128 @@ st.markdown("""
     
     .stat-card {
         background: white;
-        border-radius: 15px;
+        border-radius: 20px;
         padding: 25px;
         text-align: center;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
         transition: transform 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.03);
     }
     
     .stat-card:hover {
         transform: translateY(-5px);
     }
     
-    .stat-card.warning {
-        border-left: 4px solid #f59e0b;
+    .stat-icon {
+        font-size: 2.2em;
+        margin-bottom: 10px;
     }
     
     .stat-number {
         font-size: 2.5em;
         font-weight: 700;
         margin: 10px 0;
+        line-height: 1.2;
     }
     
     .stat-label {
         font-size: 1em;
         color: #64748b;
         font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
-    /* 表格样式 */
-    .dataframe-container {
+    /* 表格容器 */
+    .table-container {
         background: white;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-        margin: 20px 0;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        margin: 25px 0;
     }
     
-    .dataframe-title {
+    .table-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .table-header-icon {
+        background: #f59e0b;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        font-size: 1.2em;
+    }
+    
+    .table-header-title {
         font-size: 1.3em;
         font-weight: 600;
         color: #1e293b;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
     }
     
-    .dataframe-title span {
-        background: #f59e0b;
-        color: white;
-        width: 35px;
-        height: 35px;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 12px;
+    .table-header-subtitle {
+        font-size: 0.9em;
+        color: #64748b;
+        margin-left: 10px;
     }
     
-    /* 自定义表格样式 */
+    /* 表格样式 */
     .stDataFrame {
         font-family: 'Inter', sans-serif;
+        border-radius: 12px;
+        overflow: hidden;
     }
     
     .stDataFrame thead tr th {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         font-weight: 600;
-        padding: 12px;
+        padding: 15px 12px;
+        font-size: 0.95em;
     }
     
-    /* 指标卡片 */
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 12px;
-        padding: 20px;
-        color: white;
-        text-align: center;
-    }
-    
-    /* 进度条样式 */
+    /* 进度条 */
     .stProgress > div > div {
         background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 10px;
+        height: 10px;
     }
     
     /* 分隔线 */
-    .custom-divider {
-        background: linear-gradient(90deg, transparent, #667eea, transparent);
+    .divider {
+        background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
         height: 2px;
         margin: 30px 0;
     }
     
-    /* 页脚样式 */
+    /* 页脚 */
     .footer {
         text-align: center;
-        padding: 20px;
+        padding: 30px 20px 10px;
         color: #64748b;
         font-size: 0.9em;
-        margin-top: 40px;
     }
     
-    /* 动画效果 */
-    @keyframes fadeIn {
+    .footer-highlight {
+        color: #667eea;
+        font-weight: 600;
+    }
+    
+    /* 动画 */
+    @keyframes slideUp {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
     }
     
-    .fade-in {
-        animation: fadeIn 0.6s ease-out;
+    .animate-in {
+        animation: slideUp 0.5s ease-out;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -441,85 +504,94 @@ class ShipmentDataChecker:
         return self.results
 
 # 主要内容容器
-st.markdown('<div class="main-container fade-in">', unsafe_allow_html=True)
+st.markdown('<div class="main-container animate-in">', unsafe_allow_html=True)
 
-# 创建两列上传区域
+# 创建两列上传卡片
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-    <div class="upload-box">
-        <div class="upload-header">
-            <div class="upload-icon">📋</div>
-            <div>
-                <div class="upload-title">补货建议文件</div>
-                <div class="upload-subtitle">上传111补货建议.xlsx</div>
+    <div class="upload-card">
+        <div class="card-header">
+            <div class="card-header-content">
+                <div class="card-icon icon-bg-blue">📋</div>
+                <div>
+                    <div class="card-title">补货建议文件</div>
+                    <div class="card-subtitle">上传 111补货建议.xlsx</div>
+                </div>
             </div>
         </div>
-    </div>
+        <div class="card-body">
     """, unsafe_allow_html=True)
     
-    file1 = st.file_uploader("选择文件", type=['xlsx', 'xls'], key="file1", label_visibility="collapsed")
+    # 文件上传器直接放在卡片体内
+    file1 = st.file_uploader(" ", type=['xlsx', 'xls'], key="file1", label_visibility="collapsed")
     
     if file1:
         st.markdown(f"""
-        <div class="file-info">
-            <div class="file-info-item">
+        <div class="file-info-card">
+            <div class="file-info-row">
                 <span class="file-info-label">文件名</span>
                 <span class="file-info-value">{file1.name}</span>
             </div>
-            <div class="file-info-item">
+            <div class="file-info-row">
                 <span class="file-info-label">大小</span>
                 <span class="file-info-value">{file1.size / 1024:.1f} KB</span>
             </div>
-            <div style="text-align: right; margin-top: 10px;">
-                <span class="success-badge">✓ 已上传</span>
+            <div style="text-align: right; margin-top: 15px;">
+                <span class="success-chip">已上传</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown("""
-    <div class="upload-box">
-        <div class="upload-header">
-            <div class="upload-icon">📊</div>
-            <div>
-                <div class="upload-title">ERP数据文件</div>
-                <div class="upload-subtitle">上传发货计划.xlsx</div>
+    <div class="upload-card">
+        <div class="card-header">
+            <div class="card-header-content">
+                <div class="card-icon icon-bg-purple">📊</div>
+                <div>
+                    <div class="card-title">ERP数据文件</div>
+                    <div class="card-subtitle">上传 发货计划.xlsx</div>
+                </div>
             </div>
         </div>
-    </div>
+        <div class="card-body">
     """, unsafe_allow_html=True)
     
-    file2 = st.file_uploader("选择文件", type=['xlsx', 'xls'], key="file2", label_visibility="collapsed")
+    # 文件上传器直接放在卡片体内
+    file2 = st.file_uploader(" ", type=['xlsx', 'xls'], key="file2", label_visibility="collapsed")
     
     if file2:
         st.markdown(f"""
-        <div class="file-info">
-            <div class="file-info-item">
+        <div class="file-info-card">
+            <div class="file-info-row">
                 <span class="file-info-label">文件名</span>
                 <span class="file-info-value">{file2.name}</span>
             </div>
-            <div class="file-info-item">
+            <div class="file-info-row">
                 <span class="file-info-label">大小</span>
                 <span class="file-info-value">{file2.size / 1024:.1f} KB</span>
             </div>
-            <div style="text-align: right; margin-top: 10px;">
-                <span class="success-badge">✓ 已上传</span>
+            <div style="text-align: right; margin-top: 15px;">
+                <span class="success-chip">已上传</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
 # 参数设置区域
 st.markdown("""
-<div class="params-container">
+<div class="params-section">
     <div class="params-title">
         <span>⚙️</span> 核对参数设置
     </div>
-</div>
 """, unsafe_allow_html=True)
 
-col_slider1, col_slider2, col_slider3 = st.columns([2, 1, 1])
+col_slider1, col_slider2 = st.columns([3, 1])
 
 with col_slider1:
     tolerance = st.slider("误差容忍度", min_value=0, max_value=200, value=80, step=10)
@@ -528,10 +600,7 @@ with col_slider2:
     st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
     st.metric("当前值", tolerance, delta=None, delta_color="off")
 
-with col_slider3:
-    st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-    if file1 and file2:
-        st.markdown(f"<span class='success-badge'>✓ 就绪</span>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # 核对按钮
 if file1 and file2:
@@ -546,6 +615,7 @@ if file1 and file2:
                 for i in range(100):
                     if i < 30:
                         progress_bar.progress(i + 1)
+                    import time
                     time.sleep(0.01)
                 
                 checker = ShipmentDataChecker()
@@ -555,7 +625,7 @@ if file1 and file2:
                 time.sleep(0.5)
                 progress_bar.empty()
                 
-                st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+                st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
                 
                 # 统计卡片
                 total_checked = len(results['matched']) + len(results['error'])
@@ -565,7 +635,7 @@ if file1 and file2:
                 with col_stat1:
                     st.markdown(f"""
                     <div class="stat-card">
-                        <div style="font-size: 2em;">📊</div>
+                        <div class="stat-icon">📊</div>
                         <div class="stat-number">{total_checked}</div>
                         <div class="stat-label">总核对数</div>
                     </div>
@@ -574,7 +644,7 @@ if file1 and file2:
                 with col_stat2:
                     st.markdown(f"""
                     <div class="stat-card">
-                        <div style="font-size: 2em;">✅</div>
+                        <div class="stat-icon">✅</div>
                         <div class="stat-number" style="color: #10b981;">{len(results['matched'])}</div>
                         <div class="stat-label">匹配成功</div>
                     </div>
@@ -582,8 +652,8 @@ if file1 and file2:
                 
                 with col_stat3:
                     st.markdown(f"""
-                    <div class="stat-card warning">
-                        <div style="font-size: 2em;">⚠️</div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚠️</div>
                         <div class="stat-number" style="color: #f59e0b;">{len(results['error'])}</div>
                         <div class="stat-label">误差超标</div>
                     </div>
@@ -592,7 +662,7 @@ if file1 and file2:
                 with col_stat4:
                     st.markdown(f"""
                     <div class="stat-card">
-                        <div style="font-size: 2em;">❓</div>
+                        <div class="stat-icon">❓</div>
                         <div class="stat-number" style="color: #64748b;">{len(results['not_found'])}</div>
                         <div class="stat-label">未匹配</div>
                     </div>
@@ -601,10 +671,11 @@ if file1 and file2:
                 # 只显示误差超标的结果
                 if results['error']:
                     st.markdown("""
-                    <div class="dataframe-container">
-                        <div class="dataframe-title">
-                            <span>⚠️</span>
-                            误差超标记录
+                    <div class="table-container">
+                        <div class="table-header">
+                            <div class="table-header-icon">⚠️</div>
+                            <div class="table-header-title">误差超标记录</div>
+                            <div class="table-header-subtitle">需重点关注</div>
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -618,7 +689,7 @@ if file1 and file2:
                     # 添加高亮样式
                     def highlight_error(val):
                         if isinstance(val, (int, float)) and val > tolerance:
-                            return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+                            return 'background-color: #fee2e2; color: #b91c1c; font-weight: 600;'
                         return ''
                     
                     # 显示表格
@@ -690,28 +761,14 @@ with st.expander("📖 使用说明", expanded=False):
     - ✅ **实时统计** - 显示核对进度和结果统计
     - ✅ **差异比例** - 计算误差占总量的百分比
     - ✅ **一键导出** - 支持导出Excel格式的核对结果
-    
-    ### 🎯 输出说明
-    
-    | 列名 | 说明 |
-    |------|------|
-    | 产品名称 | 从补货建议中获取的产品名称 |
-    | ASIN | 商品标准识别码 |
-    | FNSKU | FNSKU编码 |
-    | 国家 | 销售国家 |
-    | **补货建议数据** | 补货建议文件中的自定义发货量 |
-    | **ERP数据** | ERP系统中的计划发货量 |
-    | 误差 | 两者的差值 |
-    | 差异比例 | 误差占ERP数据的百分比 |
     """)
 
 # 页脚
 st.markdown("""
 <div class="footer">
-    <p>© 2024 误差超标核对系统 | 版本 2.0 | 设计用于高效数据核对</p>
-    <p style="font-size: 0.8em; margin-top: 10px;">✨ 智能核对 · 精准定位 · 高效导出</p>
+    <p>© 2024 误差超标核对系统 | 版本 2.0</p>
+    <p style="font-size: 0.85em; margin-top: 10px; color: #94a3b8;">
+        设计用于高效数据核对 · 智能定位差异
+    </p>
 </div>
 """, unsafe_allow_html=True)
-
-# 添加time模块（用于进度条动画）
-import time
