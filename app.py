@@ -35,6 +35,31 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
+    /* 标题卡片 */
+    .title-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 20px 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .title-text {
+        font-size: 2.2em;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 1px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .title-subtext {
+        font-size: 1em;
+        margin: 5px 0 0;
+        opacity: 0.9;
+        font-weight: 300;
+    }
+    
     /* 上传卡片样式 */
     .upload-card {
         background: white;
@@ -480,8 +505,7 @@ class ShipmentDataChecker:
                         '国家': country,
                         '补货建议数据': custom_qty,
                         'ERP数据': planned_qty,
-                        '误差': int(error),
-                        '差异比例': f"{int(error/planned_qty*100) if planned_qty > 0 else 0}%"
+                        '误差': int(error)
                     })
                 else:
                     self.results['matched'].append({
@@ -502,6 +526,14 @@ class ShipmentDataChecker:
                 })
         
         return self.results
+
+# 顶部标题卡片
+st.markdown("""
+<div class="title-card animate-in">
+    <div class="title-text">📦 发货数据核对</div>
+    <div class="title-subtext">补货建议 vs ERP数据 · 智能核对 · 快速定位差异</div>
+</div>
+""", unsafe_allow_html=True)
 
 # 主要内容容器
 st.markdown('<div class="main-container animate-in">', unsafe_allow_html=True)
@@ -682,8 +714,8 @@ if file1 and file2:
                     # 创建DataFrame
                     df_error = pd.DataFrame(results['error'])
                     
-                    # 重新排列列顺序
-                    column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '补货建议数据', 'ERP数据', '误差', '差异比例']
+                    # 重新排列列顺序（去掉差异比例）
+                    column_order = ['产品名称', 'ASIN', 'FNSKU', '国家', '补货建议数据', 'ERP数据', '误差']
                     df_error = df_error[column_order]
                     
                     # 添加高亮样式
@@ -759,16 +791,15 @@ with st.expander("📖 使用说明", expanded=False):
     - ✅ **智能匹配** - 自动根据ASIN、FNSKU和国家进行匹配
     - ✅ **合并单元格处理** - 自动填充产品名称，解决合并单元格问题
     - ✅ **实时统计** - 显示核对进度和结果统计
-    - ✅ **差异比例** - 计算误差占总量的百分比
     - ✅ **一键导出** - 支持导出Excel格式的核对结果
     """)
 
 # 页脚
 st.markdown("""
 <div class="footer">
-    <p>© 2024 误差超标核对系统 | 版本 2.0</p>
+    <p>© 2024 发货数据核对 | 版本 2.0</p>
     <p style="font-size: 0.85em; margin-top: 10px; color: #94a3b8;">
-        设计用于高效数据核对 · 智能定位差异
+        补货建议 vs ERP数据 · 智能核对 · 快速定位差异
     </p>
 </div>
 """, unsafe_allow_html=True)
