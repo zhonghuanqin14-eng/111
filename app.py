@@ -35,7 +35,7 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    /* 标题卡片 */
+    /* 标题卡片 - 居中 */
     .title-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 16px;
@@ -43,6 +43,7 @@ st.markdown("""
         margin-bottom: 30px;
         box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
         color: white;
+        text-align: center;
     }
     
     .title-text {
@@ -519,7 +520,7 @@ class ShipmentDataChecker:
         
         return self.results
 
-# 顶部标题卡片
+# 顶部标题卡片 - 居中
 st.markdown("""
 <div class="title-card animate-in">
     <div class="title-text">📦 发货数据核对</div>
