@@ -9,7 +9,7 @@ from datetime import datetime
 
 # 页面配置 - 必须在最前面
 st.set_page_config(
-    page_title="发货数据核对",
+    page_title="误差超标核对系统",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -34,32 +34,6 @@ st.markdown("""
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         margin: 20px 0;
         backdrop-filter: blur(10px);
-    }
-    
-    /* 标题样式 */
-    .title-container {
-        text-align: center;
-        margin-bottom: 40px;
-        padding: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 15px;
-        color: white;
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-    }
-    
-    .title-container h1 {
-        font-size: 2.8em;
-        font-weight: 700;
-        margin: 0;
-        letter-spacing: 1px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    .title-container p {
-        font-size: 1.2em;
-        margin: 10px 0 0;
-        opacity: 0.95;
-        font-weight: 300;
     }
     
     /* 上传区域样式 */
@@ -252,6 +226,18 @@ st.markdown("""
         margin-bottom: 20px;
         display: flex;
         align-items: center;
+    }
+    
+    .dataframe-title span {
+        background: #f59e0b;
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
     }
     
     /* 自定义表格样式 */
@@ -454,14 +440,6 @@ class ShipmentDataChecker:
         
         return self.results
 
-# 主界面
-st.markdown("""
-<div class="title-container fade-in">
-    <h1>🔍 误差超标核对系统</h1>
-    <p>智能核对补货建议与ERP数据，快速定位差异</p>
-</div>
-""", unsafe_allow_html=True)
-
 # 主要内容容器
 st.markdown('<div class="main-container fade-in">', unsafe_allow_html=True)
 
@@ -582,10 +560,6 @@ if file1 and file2:
                 # 统计卡片
                 total_checked = len(results['matched']) + len(results['error'])
                 
-                st.markdown("""
-                <div class="stats-container">
-                """, unsafe_allow_html=True)
-                
                 col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
                 
                 with col_stat1:
@@ -629,7 +603,7 @@ if file1 and file2:
                     st.markdown("""
                     <div class="dataframe-container">
                         <div class="dataframe-title">
-                            <span style="background: #f59e0b; color: white; width: 35px; height: 35px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; margin-right: 12px;">⚠️</span>
+                            <span>⚠️</span>
                             误差超标记录
                         </div>
                     """, unsafe_allow_html=True)
