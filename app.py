@@ -8,7 +8,7 @@ from datetime import datetime
 
 # 页面配置 - 必须在最前面
 st.set_page_config(
-    page_title="误差超标核对系统",
+    page_title="发货数据核对",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -549,7 +549,7 @@ with col1:
                 <div class="card-icon icon-bg-blue">📋</div>
                 <div>
                     <div class="card-title">补货建议文件</div>
-                    <div class="card-subtitle">上传 111补货建议.xlsx</div>
+                    <div class="card-subtitle">上传 补货建议.xlsx</div>
                 </div>
             </div>
         </div>
